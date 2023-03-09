@@ -1,5 +1,5 @@
 [flake8]
-ignore = F401, F811, F821, C101, I201, I101, I100, A003
+ignore = F841, W191, E101, W605, I201, C101, F401, A003, E501
 exclude =
     .git,
     __pycache__,
@@ -11,4 +11,3 @@ max-complexity = 12
 max-linenumber = 500
 max-line-length = 120
 multiline-quotes = double
-per-file-ignores =
