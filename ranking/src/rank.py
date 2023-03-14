@@ -4,33 +4,16 @@ import pandas as pd
 from . import settings
 
 
-def create_decision_matrix(goal_time: int, data: pd.DataFrame = None) -> pd.DataFrame:
+def create_decision_matrix(combination_details: pd.DataFrame, goal_time: int) -> pd.DataFrame:
     """Create decision matrix for ranking algorithm
 
     Args:
-        data (pd.DataFrame, optional): spaces data. Defaults to None.
+        combination_details (pd.DataFrame, optional): spaces' combinations data. Defaults to None.
 
     Returns:
-        pd.DataFrame: the created decision matrix
+        pd.DataFrame: decision matrix
     """
-    # Read spaces data file
-    processed_combinations_data = pd.read_json(settings.PROC_SPACES_DATA_PATH) if data is None else pd.DataFrame(data)
-
-    matrix = pd.DataFrame(
-        columns=[
-            "num_cancellable_spaces",
-            "num_spaces",
-            "total_time_range",
-        ],
-        index=processed_combinations_data.columns,
-    )
-    # Loop to take only value of specific attribute
-    for comb, details in processed_combinations_data.items():
-        for det, value in details.items():
-            if det in ["total_time_range", "num_spaces", "num_cancellable_spaces"]:
-                matrix[det][comb] = value
-
-    decision_matrix = pd.DataFrame(matrix)
+    decision_matrix = combination_details[["total_time_range", "num_spaces", "num_cancellable_spaces"]].copy()
 
     # Substitute total_time_range by distance column
     decision_matrix["distance"] = (decision_matrix["total_time_range"] - goal_time).abs()
@@ -155,7 +138,6 @@ class Topsis:
         #     )
 
     def rank_to_worst_similarity(self):
-        print([ind + 1 for ind, val in enumerate(self.worst_similarity.argsort())])
         return [ind + 1 for ind, val in enumerate(self.worst_similarity.argsort())]
 
     def rank_to_best_similarity(self):
