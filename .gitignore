@@ -129,6 +129,5 @@ dmypy.json
 .pyre/
 
 
-# files
-*.xlsx
-*.csv
+# data
+data/
