@@ -1,11 +1,11 @@
 import collections
 import itertools
 import json
-from dataclasses import dataclass
 from functools import wraps
 from typing import Callable
 
 import numpy as np
+import pandas as pd
 
 from . import parsing, settings
 
@@ -262,7 +262,7 @@ class SpacesCombinationsConverter:
                     "dates"
                 ][date]["time_range"]
 
-    # @save_to_json(settings.PROC_SPACES_DATA_PATH)
+    @save_to_json(settings.PROC_SPACES_DATA_PATH)
     def get_data(self) -> dict:
         """Get the encoded spaces' combination detail
 
@@ -271,5 +271,4 @@ class SpacesCombinationsConverter:
         """
 
         self.__squash_spaces_combination_details()
-
-        return self.spaces_combs_details
+        return pd.DataFrame(self.spaces_combs_details).T
