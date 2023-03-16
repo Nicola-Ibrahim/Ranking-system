@@ -1,28 +1,27 @@
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.preprocessing import FunctionTransformer
 
-from .rank import create_decision_matrix
-from .utils import SpaceDetailsConverter, SpacesCombinationsConverter
+from . import rank, utils
 
 
-class SpaceDetailsConverterPipe(BaseEstimator, TransformerMixin):
+class SpaceDetailsParserPipe(BaseEstimator, TransformerMixin):
     def fit(self, X, y=None):
         return self
 
     def transform(self, X):
-        return SpaceDetailsConverter(X).get_data()
+        return utils.SpaceDetailsParser().get_data(X)
 
 
-class SpacesCombinationsConverterPipe(BaseEstimator, TransformerMixin):
+class SpacesCombinationsParserPipe(BaseEstimator, TransformerMixin):
     def fit(self, X, y=None):
         return self
 
-    def transform(self, X=None):
-        return SpacesCombinationsConverter().get_data()
+    def transform(self, X):
+        return utils.SpacesCombinationsParser().get_data(X)
 
 
 pipe_line_steps = [
-    ("space_details_converter", SpaceDetailsConverterPipe()),
-    ("space_combs_details_converter", SpacesCombinationsConverterPipe()),
-    ("make_decision_matrix", FunctionTransformer(create_decision_matrix, kw_args={"goal_time": 8})),
+    ("space_details_parser", SpaceDetailsParserPipe()),
+    ("space_combs_details_parser", SpacesCombinationsParserPipe()),
+    ("make_decision_matrix", FunctionTransformer(rank.create_decision_matrix)),
 ]
