@@ -7,7 +7,7 @@ from typing import Callable
 import numpy as np
 import pandas as pd
 
-from . import parsing, settings
+from . import json_parsing, settings
 
 
 def count_ones_sets(combination: list | tuple) -> int:
@@ -33,8 +33,7 @@ def count_ones_sets(combination: list | tuple) -> int:
 
 def read_json_file(file_path):
     with open(file_path, mode="r") as f:
-        file = json.load(f, object_hook=parsing.decode_date_time)
-
+        file = json.load(f, object_hook=json_parsing.decode_date_time)
     return file
 
 
@@ -46,7 +45,7 @@ def save_to_json(file_path):
 
             # Save to json file
             with open(file_path, mode="w") as f:
-                json.dump(spaces_combs_details, f, indent=4, cls=parsing.DateTimeEncoder)
+                json.dump(spaces_combs_details, f, indent=4, cls=json_parsing.DateTimeEncoder)
 
             return spaces_combs_details
 
@@ -55,21 +54,14 @@ def save_to_json(file_path):
     return inner
 
 
-class SpaceDetailsConverter:
-    def __init__(self, spaces_data: dict = None) -> None:
-        # Read spaces data file
-        if spaces_data is None:
-            self.spaces_data = spaces_data
-
-        else:
-            with open(settings.RAW_SPACES_DATA_PATH, mode="r") as f:
-                self.spaces_data = json.load(f, object_hook=parsing.decode_date_time)
-
+class SpaceDetailsParser:
+    def __init__(self) -> None:
         self.spaces_details = collections.defaultdict(
             lambda: collections.defaultdict(lambda: collections.defaultdict(lambda: collections.defaultdict(dict)))
         )
+        # self.spaces_details = pd.DataFrame([], columns=['encoded_time', ])
 
-    def encode_spaces_time_range(self) -> dict:
+    def __encode_spaces_time_range(self, spaces_data: dict) -> dict:
         """Encode available dates' time for each space
 
         Args:
@@ -78,8 +70,7 @@ class SpaceDetailsConverter:
         Returns:
             dict: encoded time for each space-date pair
         """
-
-        for space, details in self.spaces_data.items():
+        for space, details in spaces_data.items():
             for available_date in details["available_dates"]:
                 date_as_key = available_date["start"].date().strftime("%d/%m/%Y")
 
@@ -103,8 +94,8 @@ class SpaceDetailsConverter:
 
             self.spaces_details[space]["cancellable"] = details["cancellable"]
 
-    @save_to_json(settings.PRE_PROC_SPACES_TIME_PATH)
-    def get_data(self) -> dict:
+    # @save_to_json(settings.PRE_PROC_SPACES_TIME_PATH)
+    def get_data(self, spaces_data) -> dict:
         """Restructure the spaces details
 
 
@@ -112,20 +103,14 @@ class SpaceDetailsConverter:
             dict: spaces data
         """
 
-        # Encode the spaces; time range
-
-        self.encode_spaces_time_range()
+        self.__encode_spaces_time_range(spaces_data)
         return self.spaces_details
 
 
-class SpacesCombinationsConverter:
-    def __init__(self, spaces_data: dict = None) -> None:
+class SpacesCombinationsParser:
+    def __init__(self) -> None:
         self.spaces_combs_details = collections.defaultdict(
             lambda: collections.defaultdict(lambda: collections.defaultdict(dict))
-        )
-        # Read spaces data file
-        self.encoded_spaces_data = (
-            read_json_file(settings.PRE_PROC_SPACES_TIME_PATH) if spaces_data is None else spaces_data
         )
 
         # Encode the spaces; time range
@@ -217,7 +202,7 @@ class SpacesCombinationsConverter:
             combs_details[date]["time_range"] += sum(combs_details[date]["enc"])
         return combs_details
 
-    def __squash_spaces_combination_details(self) -> dict:
+    def __squash_spaces_combination_details(self, encoded_spaces_data) -> dict:
         """Squash available dates' time for each space
 
         Args:
@@ -228,7 +213,7 @@ class SpacesCombinationsConverter:
         """
         # TODO: sorting the the spaces by "hours" before create combinations
 
-        combinations = self.__create_space_combinations(self.encoded_spaces_data.keys())
+        combinations = self.__create_space_combinations(encoded_spaces_data.keys())
         max_combination_size = len(combinations[-1])
 
         for comb in combinations:
@@ -236,11 +221,11 @@ class SpacesCombinationsConverter:
 
             # Get the cancellable spaces
             self.spaces_combs_details[comb_to_str]["cancellable_spaces_percentage"] = self.__get_cancellable_percent(
-                [self.encoded_spaces_data[space]["cancellable"] for space in comb]
+                [encoded_spaces_data[space]["cancellable"] for space in comb]
             )
 
             self.spaces_combs_details[comb_to_str]["num_cancellable_spaces"] = sum(
-                [self.encoded_spaces_data[space]["cancellable"] for space in comb]
+                [encoded_spaces_data[space]["cancellable"] for space in comb]
             )
 
             # Get the spaces
@@ -250,7 +235,7 @@ class SpacesCombinationsConverter:
 
             # Merging spaces' time in each combination
             self.spaces_combs_details[comb_to_str]["dates"] = self.__merge_combination_time(
-                {i: self.encoded_spaces_data[i] for i in comb}
+                {i: encoded_spaces_data[i] for i in comb}
             )
 
             # Get total time range\
@@ -263,12 +248,12 @@ class SpacesCombinationsConverter:
                 ][date]["time_range"]
 
     @save_to_json(settings.PROC_SPACES_DATA_PATH)
-    def get_data(self) -> dict:
+    def get_data(self, encoded_spaces_data: dict) -> dict:
         """Get the encoded spaces' combination detail
 
         Returns:
             dict: combination of spaces data
         """
 
-        self.__squash_spaces_combination_details()
+        self.__squash_spaces_combination_details(encoded_spaces_data)
         return pd.DataFrame(self.spaces_combs_details).T
