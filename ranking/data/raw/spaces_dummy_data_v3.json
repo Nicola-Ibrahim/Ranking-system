@@ -1,0 +1,55 @@
+[
+  {
+    "id": "A1",
+    "available_dates": [
+      {
+        "start": "2022-01-01T08:00:00",
+        "end": "2022-01-01T10:00:00",
+        "cancellable": false
+      },
+      {
+        "start": "2022-01-02T01:00:00",
+        "end": "2022-01-02T02:00:00",
+        "cancellable": true
+      },
+      {
+        "start": "2022-01-03T01:00:00",
+        "end": "2022-01-03T02:00:00",
+        "cancellable": false
+      }
+    ]
+  },
+
+  {
+    "id": "A2",
+    "available_dates": [
+      {
+        "start": "2022-01-01T10:00:00",
+        "end": "2022-01-01T12:00:00",
+        "cancellable": true
+      }
+    ]
+  },
+
+  {
+    "id": "A3",
+    "available_dates": [
+      {
+        "start": "2022-01-01T12:00:00",
+        "end": "2022-01-01T14:00:00",
+        "cancellable": false
+      }
+    ]
+  },
+
+  {
+    "id": "A4",
+    "available_dates": [
+      {
+        "start": "2022-01-01T14:00:00",
+        "end": "2022-01-01T16:00:00",
+        "cancellable": true
+      }
+    ]
+  }
+]
