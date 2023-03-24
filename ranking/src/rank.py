@@ -4,25 +4,6 @@ import pandas as pd
 from . import settings
 
 
-def create_decision_matrix(combination_details: pd.DataFrame, goal_time: int) -> pd.DataFrame:
-    """Create decision matrix for ranking algorithm
-
-    Args:
-        combination_details (pd.DataFrame, optional): spaces' combinations data. Defaults to None.
-
-    Returns:
-        pd.DataFrame: decision matrix
-    """
-    decision_matrix = combination_details[["total_time_range", "num_spaces", "num_cancellable_spaces"]].copy()
-
-    # Substitute total_time_range by distance column
-    decision_matrix["distance"] = (decision_matrix["total_time_range"] - goal_time).abs()
-    decision_matrix.drop(columns=["total_time_range"], inplace=True)
-
-    # decision_matrix.to_pickle(settings.DECISION_MATRIX_PATH)
-    return decision_matrix
-
-
 class Topsis:
     decision_matrix = np.array([])  # Matrix
     combinations = []
@@ -37,7 +18,7 @@ class Topsis:
 	we therefore have a matrix {\displaystyle (x_{ij})_{m\times n}}(x_{{ij}})_{{m\times n}}.
 	"""
 
-    def __init__(self, decision_matrix, weight_matrix, criteria):
+    def __init__(self, decision_matrix: np.ndarray, weight_matrix: list[int], criteria: list[bool]):
         self.dmatrix = decision_matrix
 
         # M×N matrix
