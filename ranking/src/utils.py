@@ -1,13 +1,13 @@
-import collections
 import itertools
 import json
+import typing
 from functools import wraps
 from typing import Callable
 
 import numpy as np
 import pandas as pd
 
-from . import json_parsing, settings
+from . import json_parsing
 
 
 def count_ones_sets(combination: list | tuple) -> int:
@@ -55,205 +55,186 @@ def save_to_json(file_path):
 
 
 class SpaceDetailsParser:
-    def __init__(self) -> None:
-        self.spaces_details = collections.defaultdict(
-            lambda: collections.defaultdict(lambda: collections.defaultdict(lambda: collections.defaultdict(dict)))
-        )
-        # self.spaces_details = pd.DataFrame([], columns=['encoded_time', ])
+    def __init__(self, num_enc_bits) -> None:
+        self.num_enc_bits = num_enc_bits
 
-    def __encode_spaces_time_range(self, spaces_data: dict) -> dict:
-        """Encode available dates' time for each space
+    def __normalize_json(self, data: dict[dict["str" : typing.Any]]) -> pd.DataFrame:
+        """Normalize the json data for further preprocessing
 
         Args:
-            time_span (int): the search range
+            data (dict): available reservations of spaces
 
         Returns:
-            dict: encoded time for each space-date pair
+            pd.DataFrame: dataframe of normalized spaces
         """
-        for space, details in spaces_data.items():
-            for available_date in details["available_dates"]:
-                date_as_key = available_date["start"].date().strftime("%d/%m/%Y")
+        spaces_details = pd.json_normalize(data, record_path=["available_dates"], meta=["id"], errors="ignore")
 
-                # Assign 0 bits list
-                if not self.spaces_details[space]["dates"][date_as_key]["enc"]:
-                    self.spaces_details[space]["dates"][date_as_key]["enc"] = [0] * settings.NUM_OF_ENCODED_BITS
+        # Change columns type
+        spaces_details["start"] = spaces_details["start"].astype("datetime64[ns]")
+        spaces_details["end"] = spaces_details["end"].astype("datetime64[ns]")
+        spaces_details["cancellable"] = spaces_details["cancellable"].astype(int)
 
-                end_time = available_date["end"].hour
-                if available_date["end"].hour >= 23 and available_date["end"].minute > 0:
-                    end_time = available_date["end"].hour + 1
+        # Split date from time
+        spaces_details["date"] = spaces_details["start"].dt.to_period("d").astype("datetime64[ns]")
+        # spaces_details["date"] = spaces_details["date"].astype("str")
 
-                # Flip bits where there is free time
-                for i in range(available_date["start"].hour, end_time):
-                    self.spaces_details[space]["dates"][date_as_key]["enc"][i] = 1
+        return spaces_details
 
-                # Assign 0 value to time range
+    def __add_cancellable_percent(self, spaces_details: pd.DataFrame) -> pd.DataFrame:
+        # Add new cancellable percentage column
+        spaces_details["cancellable_percent"] = spaces_details["cancellable"] * spaces_details["total_time_span"]
+        spaces_details["cancellable_percent"] /= spaces_details["total_time_span"].sum()
 
-                self.spaces_details[space]["dates"][date_as_key]["time_range"] = sum(
-                    self.spaces_details[space]["dates"][date_as_key]["enc"]
-                )
+        # Drop columns
+        spaces_details.drop(columns="cancellable", inplace=True)
 
-            self.spaces_details[space]["cancellable"] = details["cancellable"]
+        return spaces_details
 
-    # @save_to_json(settings.PRE_PROC_SPACES_TIME_PATH)
-    def get_data(self, spaces_data) -> dict:
+    def __encode_time_span(self, spaces_details: pd.DataFrame) -> pd.DataFrame:
+        """Encode the time span of each space for each available time
+
+        Args:
+            spaces_details (pd.DataFrame): spaces details
+
+        Returns:
+            pd.DataFrame: spaces details with new encoded columns
+        """
+
+        def encode(row: pd.Series):
+            if row["end"].hour == 23:
+                end = str(row["end"].hour)
+            else:
+                end = str(row["end"].hour - 1)
+            start = str(row["start"].hour)
+
+            row.loc[start:end] = 1
+
+            return row
+
+        # Create matrix of zeros with shaped number of available spaces' time span
+        # and num of intended encoded bits
+        zeros_matrix = np.zeros(shape=(spaces_details.shape[0], self.num_enc_bits), dtype="int")
+
+        zeros_matrix = pd.DataFrame(zeros_matrix, columns=[str(i) for i in range(24)])
+
+        spaces_details = pd.concat([spaces_details, zeros_matrix], axis=1)
+
+        spaces_details = spaces_details.apply(encode, axis=1)
+
+        return spaces_details
+
+    def __add_total_time_span(self, spaces_details: pd.DataFrame) -> pd.DataFrame:
+        spaces_details["total_time_span"] = spaces_details.loc[:, "0":"23"].sum(axis=1)
+
+        return spaces_details
+
+    def get_data(self, data: dict[dict["str" : typing.Any]]) -> dict:
         """Restructure the spaces details
-
 
         Returns:
             dict: spaces data
         """
 
-        self.__encode_spaces_time_range(spaces_data)
-        return self.spaces_details
+        spaces_details = self.__normalize_json(data)
+        spaces_details = self.__encode_time_span(spaces_details)
+        spaces_details = self.__add_total_time_span(spaces_details)
+        spaces_details = self.__add_cancellable_percent(spaces_details)
+
+        return spaces_details
 
 
 class SpacesCombinationsParser:
-    def __init__(self) -> None:
-        self.spaces_combs_details = collections.defaultdict(
-            lambda: collections.defaultdict(lambda: collections.defaultdict(dict))
-        )
-
-        # Encode the spaces; time range
-
-    def __create_space_combinations(self, spaces: list) -> list:
+    def __create_space_combinations(self, spaces_details: pd.DataFrame) -> list:
         """Create combinations from the available spaces
 
         Args:
-            spaces (list): spaces list
+            spaces_details (pd.DataFrame): available spaces
 
         Returns:
             list: list of created combinations
         """
+
+        individual_spaces = spaces_details.groupby(["id"]).sum(numeric_only=True)[
+            ["total_time_span", "cancellable_percent"]
+        ]
+        individual_spaces = individual_spaces.sort_values("total_time_span", ascending=False)
+        unique_spaces = individual_spaces.index
+
         combinations_lst = list(
-            itertools.chain.from_iterable(itertools.combinations(spaces, r) for r in range(len(spaces) + 1))
+            itertools.chain.from_iterable(
+                itertools.combinations(unique_spaces, r) for r in range(len(unique_spaces) + 1)
+            )
         )
-        # Remove the first empty element [(),]
-        combinations_lst = combinations_lst[1:]
 
         return combinations_lst
 
-    def __get_cancellable_percent(self, cancellables: list) -> float:
-        """Get the percentage of cancellable spaces from the combination
+    def __get_combinations_details(self, spaces_details: pd.DataFrame, combinations: list[str]) -> pd.DataFrame:
+        """Get the related data for the created combinations
 
         Args:
-            cancellables (dict): cancellable values
+            spaces_details (pd.DataFrame): spaces details
+            combinations (list[str]): created combinations
 
         Returns:
-            float: cancellable percentage value
-        """
-        return sum(cancellables) / len(cancellables)
-
-    def __bitwise_time_ranges(self, time_ranges: np.ndarray) -> list:
-        """Do bitwise operator (OR) for binary time ranges
-
-        Args:
-            time_ranges (np.ndarray): time ranges for each combination
-
-        Returns:
-            list: squashed time ranges
-        """
-        result = np.zeros(shape=[1, settings.NUM_OF_ENCODED_BITS], dtype=int).flatten()
-        for time_range in time_ranges:
-            result |= np.array(time_range)
-
-        return result.tolist()
-
-    def __get_unique_dates(self, values):
-        # Get unique dates
-        dates = set()
-        for details in values:
-            dates.update(list(details["dates"].keys()))
-
-        dates = sorted(dates)
-
-        return dates
-
-    def __merge_combination_time(self, combination_details: dict) -> dict:
-        """Merge combination spaces' time range
-
-        Args:
-            combination_details (dict): spaces' detail in each combination
-
-        Returns:
-            dict: merged encoded time range
-        """
-
-        comb_keys = list(combination_details.keys())
-
-        # If there is only one space in the combination
-        if len(comb_keys) < 2:
-            # Return the sames corresponding space details to the combination
-            return list(combination_details.values())[0]["dates"]
-
-        # If there is many spaces in the combination
-        # Then, squash the spaces dates into one combination
-
-        combs_details = collections.defaultdict(lambda: collections.defaultdict(dict))
-
-        dates = self.__get_unique_dates(combination_details.values())
-        for date in dates:
-            summing_date = [combination_details[key]["dates"][date]["enc"] for key in combination_details.keys()]
-
-            combs_details[date]["enc"] = self.__bitwise_time_ranges(summing_date)
-
-            if not combs_details[date]["time_range"] and isinstance(combs_details[date]["time_range"], dict):
-                combs_details[date]["time_range"] = 0
-
-            combs_details[date]["time_range"] += sum(combs_details[date]["enc"])
-        return combs_details
-
-    def __squash_spaces_combination_details(self, encoded_spaces_data) -> dict:
-        """Squash available dates' time for each space
-
-        Args:
-            spaces_data (dict): encoded spaces' details
-
-        Returns:
-            dict: encoded time for each combination
+            pd.DataFrame: new spaces details containing created combinations
         """
         # TODO: sorting the the spaces by "hours" before create combinations
 
-        combinations = self.__create_space_combinations(encoded_spaces_data.keys())
-        max_combination_size = len(combinations[-1])
+        spaces_combs_details = spaces_details.groupby(["id", "date"]).sum(numeric_only=True)
 
         for comb in combinations:
-            comb_to_str = ",".join(comb)
+            dd = pd.DataFrame(spaces_details.query("id in @comb").groupby("date").sum(numeric_only=True))
 
-            # Get the cancellable spaces
-            self.spaces_combs_details[comb_to_str]["cancellable_spaces_percentage"] = self.__get_cancellable_percent(
-                [encoded_spaces_data[space]["cancellable"] for space in comb]
-            )
+            dd[(dd > 1)] = 1
 
-            self.spaces_combs_details[comb_to_str]["num_cancellable_spaces"] = sum(
-                [encoded_spaces_data[space]["cancellable"] for space in comb]
-            )
+            dd = pd.concat({"".join(comb): dd}, names=["id"])
 
-            # Get the spaces
-            self.spaces_combs_details[comb_to_str]["spaces_percentage"] = len(comb) / max_combination_size
+            dd["num_spaces"] = len(comb)
+            spaces_combs_details = pd.concat([spaces_combs_details, dd], axis=0)
 
-            self.spaces_combs_details[comb_to_str]["num_spaces"] = len(comb)
+        # Recalculate total time span
+        spaces_combs_details["total_time_span"] = spaces_combs_details.loc[:, "0":"23"].sum(axis=1)
 
-            # Merging spaces' time in each combination
-            self.spaces_combs_details[comb_to_str]["dates"] = self.__merge_combination_time(
-                {i: encoded_spaces_data[i] for i in comb}
-            )
+        return spaces_combs_details
 
-            # Get total time range\
-            for date in self.spaces_combs_details[comb_to_str]["dates"]:
-                if not self.spaces_combs_details[comb_to_str]["total_time_range"]:
-                    self.spaces_combs_details[comb_to_str]["total_time_range"] = 0
+    def get_data(self, spaces_data: pd.DataFrame) -> pd.DataFrame:
+        combinations = self.__create_space_combinations(spaces_data)
+        spaces_combs_details = self.__get_combinations_details(spaces_data, combinations)
+        spaces_combs_details = (
+            spaces_combs_details.reset_index().groupby("id")[["total_time_span", "cancellable_percent"]].sum()
+        )
 
-                self.spaces_combs_details[comb_to_str]["total_time_range"] += self.spaces_combs_details[comb_to_str][
-                    "dates"
-                ][date]["time_range"]
+        return spaces_combs_details
 
-    @save_to_json(settings.PROC_SPACES_DATA_PATH)
-    def get_data(self, encoded_spaces_data: dict) -> dict:
-        """Get the encoded spaces' combination detail
+
+class DecisionMatrix:
+    def __init__(self, goal_time) -> None:
+        self.goal_time = goal_time
+
+    def __add_num_spaces_var(self, spaces_details: pd.DataFrame) -> pd.DataFrame:
+        spaces_details["num_spaces"] = spaces_details.index.str.split(pat=r"\d", regex=True)
+        spaces_details.loc[:, "num_spaces"] = spaces_details["num_spaces"].apply(len) - 1
+
+        return spaces_details
+
+    def __add_distance_var(self, spaces_details: pd.DataFrame, goal_time: int) -> pd.DataFrame:
+        spaces_details["distance"] = (spaces_details["total_time_span"] - goal_time).abs()
+        spaces_details.drop(columns=["total_time_span"], inplace=True)
+        return spaces_details
+
+    def create(self, spaces_details: pd.DataFrame) -> pd.DataFrame:
+        """Create decision matrix for ranking algorithm
+
+        Args:
+            spaces_combs_details (pd.DataFrame, optional): spaces' combinations data. Defaults to None.
 
         Returns:
-            dict: combination of spaces data
+            pd.DataFrame: decision matrix
         """
 
-        self.__squash_spaces_combination_details(encoded_spaces_data)
-        return pd.DataFrame(self.spaces_combs_details).T
+        spaces_details = self.__add_num_spaces_var(spaces_details)
+        spaces_details = self.__add_distance_var(spaces_details, self.goal_time)
+
+        decisions_variables = ["cancellable_percent", "num_spaces", "distance"]
+
+        return spaces_details[decisions_variables]
