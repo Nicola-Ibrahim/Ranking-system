@@ -21,6 +21,9 @@ yapf = "^0.32.0"
 isort = "^5.12.0"
 scikit-learn = "^1.2.2"
 ipykernel = "^6.21.3"
+seaborn = "^0.12.2"
+matplotlib = "^3.7.1"
+jinja2 = "^3.1.2"
 
 [tool.black]
 line-length = 119
