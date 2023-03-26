@@ -115,7 +115,7 @@ class SpaceDetailsParser:
         # and num of intended encoded bits
         zeros_matrix = np.zeros(shape=(spaces_details.shape[0], self.num_enc_bits), dtype="int")
 
-        zeros_matrix = pd.DataFrame(zeros_matrix, columns=[str(i) for i in range(24)])
+        zeros_matrix = pd.DataFrame(zeros_matrix, columns=[str(i) for i in range(self.num_enc_bits)])
 
         spaces_details = pd.concat([spaces_details, zeros_matrix], axis=1)
 
