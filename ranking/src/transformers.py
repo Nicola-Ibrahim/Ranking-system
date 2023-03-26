@@ -1,10 +1,9 @@
 from sklearn.base import BaseEstimator, TransformerMixin
-from sklearn.preprocessing import FunctionTransformer
 
 from . import rank, utils
 
 
-class SpaceDetailsParserPipe(BaseEstimator, TransformerMixin):
+class SpaceDetailsParserTransformer(BaseEstimator, TransformerMixin):
     def __init__(self, num_enc_bits) -> None:
         self.num_enc_bits = num_enc_bits
 
@@ -15,7 +14,7 @@ class SpaceDetailsParserPipe(BaseEstimator, TransformerMixin):
         return utils.SpaceDetailsParser(self.num_enc_bits).get_data(X)
 
 
-class SpacesCombinationsParserPipe(BaseEstimator, TransformerMixin):
+class SpacesCombinationsParserTransformer(BaseEstimator, TransformerMixin):
     def fit(self, X, y=None):
         return self
 
@@ -23,7 +22,7 @@ class SpacesCombinationsParserPipe(BaseEstimator, TransformerMixin):
         return utils.SpacesCombinationsParser().get_data(X)
 
 
-class DecisionMatrixPipe(BaseEstimator, TransformerMixin):
+class DecisionMatrixTransformer(BaseEstimator, TransformerMixin):
     def __init__(self, goal_time: int) -> None:
         self.goal_time = goal_time
 
@@ -34,7 +33,7 @@ class DecisionMatrixPipe(BaseEstimator, TransformerMixin):
         return utils.DecisionMatrix(self.goal_time).create(X)
 
 
-class TopsisPipe(BaseEstimator, TransformerMixin):
+class TopsisTransformer(BaseEstimator, TransformerMixin):
     def __init__(self, weight_matrix: list[int], criteria: list[bool]) -> None:
         self.weight_matrix = weight_matrix
         self.criteria = criteria
@@ -47,8 +46,8 @@ class TopsisPipe(BaseEstimator, TransformerMixin):
 
 
 pipe_line_steps = [
-    ("space_details_parser", SpaceDetailsParserPipe(num_enc_bits=24)),
-    ("space_combs_details_parser", SpacesCombinationsParserPipe()),
-    ("decision_matrix", DecisionMatrixPipe(goal_time=8)),
-    ("topsis_rank", TopsisPipe(weight_matrix=[69.2, 23.1, 7.7], criteria=[False, False, False])),
+    ("space_details_parser", SpaceDetailsParserTransformer(num_enc_bits=24)),
+    ("space_combs_details_parser", SpacesCombinationsParserTransformer()),
+    ("decision_matrix", DecisionMatrixTransformer(goal_time=8)),
+    ("topsis_rank", TopsisTransformer(weight_matrix=[69.2, 23.1, 7.7], criteria=[False, False, False])),
 ]
