@@ -154,15 +154,11 @@ class SpacesCombinationsParser:
             list: list of created combinations
         """
 
-        individual_spaces = spaces_details.groupby(["id"]).sum(numeric_only=True)[
-            ["total_time_span", "cancellable_percent"]
-        ]
-        individual_spaces = individual_spaces.sort_values("total_time_span", ascending=False)
-        unique_spaces = individual_spaces.index
+        unique_spaces = spaces_details["id"].unique().tolist()
 
         combinations_lst = list(
             itertools.chain.from_iterable(
-                itertools.combinations(unique_spaces, r) for r in range(len(unique_spaces) + 1)
+                itertools.combinations(unique_spaces, r) for r in range(2, len(unique_spaces) + 1)
             )
         )
 
@@ -178,19 +174,17 @@ class SpacesCombinationsParser:
         Returns:
             pd.DataFrame: new spaces details containing created combinations
         """
-        # TODO: sorting the the spaces by "hours" before create combinations
 
         spaces_combs_details = spaces_details.groupby(["id", "date"]).sum(numeric_only=True)
 
         for comb in combinations:
-            dd = pd.DataFrame(spaces_details.query("id in @comb").groupby("date").sum(numeric_only=True))
+            df_comb = pd.DataFrame(spaces_details.query("id in @comb").groupby("date").sum(numeric_only=True))
 
-            dd[(dd > 1)] = 1
+            df_comb[(df_comb > 1)] = 1
 
-            dd = pd.concat({"".join(comb): dd}, names=["id"])
+            df_comb = pd.concat({"".join(comb): df_comb}, names=["id"])
 
-            dd["num_spaces"] = len(comb)
-            spaces_combs_details = pd.concat([spaces_combs_details, dd], axis=0)
+            spaces_combs_details = pd.concat([spaces_combs_details, df_comb], axis=0)
 
         # Recalculate total time span
         spaces_combs_details["total_time_span"] = spaces_combs_details.loc[:, "0":"23"].sum(axis=1)
@@ -200,9 +194,7 @@ class SpacesCombinationsParser:
     def get_data(self, spaces_data: pd.DataFrame) -> pd.DataFrame:
         combinations = self.__create_space_combinations(spaces_data)
         spaces_combs_details = self.__get_combinations_details(spaces_data, combinations)
-        spaces_combs_details = (
-            spaces_combs_details.reset_index().groupby("id")[["total_time_span", "cancellable_percent"]].sum()
-        )
+        spaces_combs_details = spaces_combs_details.groupby("id")[["total_time_span", "cancellable_percent"]].sum()
 
         return spaces_combs_details
 
