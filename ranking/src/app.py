@@ -6,8 +6,6 @@ from . import settings, transformers, utils
 
 
 def run():
-    goal_time = 8  # type: ignore
-
     start = time.time()
 
     # Read spaces data file
