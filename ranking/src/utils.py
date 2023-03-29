@@ -188,24 +188,24 @@ class SpacesCombinationsCreator:
 
         return spaces_combs_details
 
-    def __add_cancellable_percent(self, spaces_combs_details):
-        spaces_combs_details = spaces_combs_details.groupby("id")[["total_time_span", "cancellable_span"]].sum()
-        spaces_combs_details["cancellable_percent"] = (
-            spaces_combs_details["cancellable_span"] / spaces_combs_details["cancellable_span"].sum()
-        )
-
-        return spaces_combs_details
-
     def create(self, spaces_data: pd.DataFrame) -> pd.DataFrame:
         combinations = self.__create_space_combinations(spaces_data)
         spaces_combs_details = self.__get_combinations_details(spaces_data, combinations)
-        spaces_combs_details = self.__add_cancellable_percent(spaces_combs_details)
+
         return spaces_combs_details
 
 
 class DecisionMatrix:
     def __init__(self, goal_time) -> None:
         self.goal_time = goal_time
+
+    def __add_cancellable_percent(self, spaces_details):
+        spaces_details = spaces_details.groupby("id")[["total_time_span", "cancellable_span"]].sum()
+        spaces_details["cancellable_percent"] = (
+            spaces_details["cancellable_span"] / spaces_details["cancellable_span"].sum()
+        )
+
+        return spaces_details
 
     def __add_num_spaces_var(self, spaces_details: pd.DataFrame) -> pd.DataFrame:
         spaces_details["num_spaces"] = spaces_details.index.str.split(pat=r"\d", regex=True)
@@ -227,7 +227,7 @@ class DecisionMatrix:
         Returns:
             pd.DataFrame: decision matrix
         """
-
+        spaces_details = self.__add_cancellable_percent(spaces_details)
         spaces_details = self.__add_num_spaces_var(spaces_details)
         spaces_details = self.__add_distance_var(spaces_details, self.goal_time)
 
