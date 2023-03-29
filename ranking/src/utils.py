@@ -80,16 +80,6 @@ class SpaceDetailsParser:
 
         return spaces_details
 
-    def __add_cancellable_percent(self, spaces_details: pd.DataFrame) -> pd.DataFrame:
-        # Add new cancellable percentage column
-        spaces_details["cancellable_percent"] = spaces_details["cancellable"] * spaces_details["total_time_span"]
-        spaces_details["cancellable_percent"] /= spaces_details["total_time_span"].sum()
-
-        # Drop columns
-        spaces_details.drop(columns="cancellable", inplace=True)
-
-        return spaces_details
-
     def __encode_time_span(self, spaces_details: pd.DataFrame) -> pd.DataFrame:
         """Encode the time span of each space for each available time
 
@@ -138,7 +128,6 @@ class SpaceDetailsParser:
         spaces_details = self.__normalize_json(data)
         spaces_details = self.__encode_time_span(spaces_details)
         spaces_details = self.__add_total_time_span(spaces_details)
-        spaces_details = self.__add_cancellable_percent(spaces_details)
 
         return spaces_details
 
@@ -180,22 +169,37 @@ class SpacesCombinationsParser:
         for comb in combinations:
             df_comb = pd.DataFrame(spaces_details.query("id in @comb").groupby("date").sum(numeric_only=True))
 
-            df_comb[(df_comb > 1)] = 1
+            # Edit only 0->23 columns to be 1
+            df_comb.loc[:, "0":"23"][(df_comb.loc[:, "0":"23"] > 1)] = 1
 
             df_comb = pd.concat({"".join(comb): df_comb}, names=["id"])
 
             spaces_combs_details = pd.concat([spaces_combs_details, df_comb], axis=0)
 
+        spaces_combs_details[(spaces_combs_details > 1)] = 1
+
         # Recalculate total time span
         spaces_combs_details["total_time_span"] = spaces_combs_details.loc[:, "0":"23"].sum(axis=1)
+
+        # Recalculate cancellable span
+        spaces_combs_details["cancellable_span"] = (
+            spaces_combs_details["total_time_span"] * spaces_combs_details["cancellable"]
+        )
+
+        return spaces_combs_details
+
+    def __add_cancellable_percent(self, spaces_combs_details):
+        spaces_combs_details = spaces_combs_details.groupby("id")[["total_time_span", "cancellable_span"]].sum()
+        spaces_combs_details["cancellable_percent"] = (
+            spaces_combs_details["cancellable_span"] / spaces_combs_details["cancellable_span"].sum()
+        )
 
         return spaces_combs_details
 
     def get_data(self, spaces_data: pd.DataFrame) -> pd.DataFrame:
         combinations = self.__create_space_combinations(spaces_data)
         spaces_combs_details = self.__get_combinations_details(spaces_data, combinations)
-        spaces_combs_details = spaces_combs_details.groupby("id")[["total_time_span", "cancellable_percent"]].sum()
-
+        spaces_combs_details = self.__add_cancellable_percent(spaces_combs_details)
         return spaces_combs_details
 
 
@@ -205,7 +209,7 @@ class DecisionMatrix:
 
     def __add_num_spaces_var(self, spaces_details: pd.DataFrame) -> pd.DataFrame:
         spaces_details["num_spaces"] = spaces_details.index.str.split(pat=r"\d", regex=True)
-        spaces_details.loc[:, "num_spaces"] = spaces_details["num_spaces"].apply(len) - 1
+        spaces_details["num_spaces"] = spaces_details["num_spaces"].apply(len) - 1
 
         return spaces_details
 
