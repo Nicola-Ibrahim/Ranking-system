@@ -65,14 +65,17 @@ class Topsis:
 
     def step_4(self):
         self.worst_alternatives = np.zeros(self.column_size)
-        self.best_alternatives = np.zeros(self.column_size)
+        # self.best_alternatives = np.zeros(self.column_size)
+
+        self.best_alternatives = np.array([0, 0, 0])  # set custom best alternatives
+
         for i in range(self.column_size):
             if self.criteria[i]:
                 self.worst_alternatives[i] = min(self.weighted_normalized_decision_matrix[:, i])
-                self.best_alternatives[i] = max(self.weighted_normalized_decision_matrix[:, i])
+                # self.best_alternatives[i] = max(self.weighted_normalized_decision_matrix[:, i])
             else:
                 self.worst_alternatives[i] = max(self.weighted_normalized_decision_matrix[:, i])
-                self.best_alternatives[i] = min(self.weighted_normalized_decision_matrix[:, i])
+                # self.best_alternatives[i] = min(self.weighted_normalized_decision_matrix[:, i])
 
     """
 	# Step 5
@@ -107,16 +110,6 @@ class Topsis:
 
         self.worst_similarity = self.worst_distance / (self.worst_distance + self.best_distance)
         self.best_distance = self.worst_distance / (self.worst_distance + self.best_distance)
-        # for i in range(self.row_size):
-        #     # calculate the similarity to the worst condition
-        #     self.worst_similarity[i] = self.worst_distance[i] / (
-        #         self.worst_distance[i] + self.best_distance[i]
-        #     )
-
-        #     # calculate the similarity to the best condition
-        #     self.best_similarity[i] = self.best_distance[i] / (
-        #         self.worst_distance[i] + self.best_distance[i]
-        #     )
 
     def rank_to_worst_similarity(self):
         return [ind + 1 for ind, val in enumerate(self.worst_similarity.argsort())]
@@ -159,6 +152,6 @@ class Topsis:
         scores.insert(0, "rank", range(1, len(self.worst_similarity) + 1))
 
         # Save the score results to csv file
-        scores.to_csv(settings.COMB_SCORES_PATH)
+        # scores.to_csv(settings.COMB_SCORES_PATH)
 
         return scores
