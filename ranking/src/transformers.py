@@ -3,7 +3,7 @@ from sklearn.base import BaseEstimator, TransformerMixin
 from . import rank, utils
 
 
-class SpaceDetailsParserTransformer(BaseEstimator, TransformerMixin):
+class SpaceDetailsTransformer(BaseEstimator, TransformerMixin):
     def __init__(self, num_enc_bits) -> None:
         self.num_enc_bits = num_enc_bits
 
@@ -11,15 +11,15 @@ class SpaceDetailsParserTransformer(BaseEstimator, TransformerMixin):
         return self
 
     def transform(self, X):
-        return utils.SpaceDetailsParser(self.num_enc_bits).get_data(X)
+        return utils.SpacesCreator(self.num_enc_bits).create(X)
 
 
-class SpacesCombinationsParserTransformer(BaseEstimator, TransformerMixin):
+class SpacesCombinationsTransformer(BaseEstimator, TransformerMixin):
     def fit(self, X, y=None):
         return self
 
     def transform(self, X):
-        return utils.SpacesCombinationsParser().get_data(X)
+        return utils.SpacesCombinationsCreator().create(X)
 
 
 class DecisionMatrixTransformer(BaseEstimator, TransformerMixin):
@@ -46,8 +46,8 @@ class TopsisTransformer(BaseEstimator, TransformerMixin):
 
 
 pipe_line_steps = [
-    ("space_details_parser", SpaceDetailsParserTransformer(num_enc_bits=24)),
-    ("space_combs_details_parser", SpacesCombinationsParserTransformer()),
-    ("decision_matrix", DecisionMatrixTransformer(goal_time=8)),
+    ("space_details_parser", SpaceDetailsTransformer(num_enc_bits=24)),
+    ("space_combs_details_parser", SpacesCombinationsTransformer()),
+    ("decision_matrix", DecisionMatrixTransformer(goal_time=132)),
     ("topsis_rank", TopsisTransformer(weight_matrix=[69.2, 23.1, 7.7], criteria=[False, False, False])),
 ]

@@ -54,7 +54,7 @@ def save_to_json(file_path):
     return inner
 
 
-class SpaceDetailsParser:
+class SpacesCreator:
     def __init__(self, num_enc_bits) -> None:
         self.num_enc_bits = num_enc_bits
 
@@ -118,7 +118,7 @@ class SpaceDetailsParser:
 
         return spaces_details
 
-    def get_data(self, data: dict[dict["str" : typing.Any]]) -> dict:
+    def create(self, data: dict[dict["str" : typing.Any]]) -> dict:
         """Restructure the spaces details
 
         Returns:
@@ -132,7 +132,7 @@ class SpaceDetailsParser:
         return spaces_details
 
 
-class SpacesCombinationsParser:
+class SpacesCombinationsCreator:
     def __create_space_combinations(self, spaces_details: pd.DataFrame) -> list:
         """Create combinations from the available spaces
 
@@ -196,7 +196,7 @@ class SpacesCombinationsParser:
 
         return spaces_combs_details
 
-    def get_data(self, spaces_data: pd.DataFrame) -> pd.DataFrame:
+    def create(self, spaces_data: pd.DataFrame) -> pd.DataFrame:
         combinations = self.__create_space_combinations(spaces_data)
         spaces_combs_details = self.__get_combinations_details(spaces_data, combinations)
         spaces_combs_details = self.__add_cancellable_percent(spaces_combs_details)
