@@ -62,18 +62,19 @@ class Topsis:
 	"""
 
     def step_4(self):
-        self.worst_alternatives = np.zeros(self.column_size)
+        # self.worst_alternatives = np.zeros(self.column_size)
         # self.best_alternatives = np.zeros(self.column_size)
 
+        self.worst_alternatives = np.array([1, 1, 1])
         self.best_alternatives = np.array([0, 0, 0])  # set custom best alternatives
 
-        for i in range(self.column_size):
-            if self.criteria[i]:
-                self.worst_alternatives[i] = min(self.weighted_normalized_decision_matrix[:, i])
-                # self.best_alternatives[i] = max(self.weighted_normalized_decision_matrix[:, i])
-            else:
-                self.worst_alternatives[i] = max(self.weighted_normalized_decision_matrix[:, i])
-                # self.best_alternatives[i] = min(self.weighted_normalized_decision_matrix[:, i])
+        # for i in range(self.column_size):
+        #     if self.criteria[i]:
+        #         self.worst_alternatives[i] = min(self.weighted_normalized_decision_matrix[:, i])
+        #         # self.best_alternatives[i] = max(self.weighted_normalized_decision_matrix[:, i])
+        #     else:
+        #         self.worst_alternatives[i] = max(self.weighted_normalized_decision_matrix[:, i])
+        #         # self.best_alternatives[i] = min(self.weighted_normalized_decision_matrix[:, i])
 
     """
 	# Step 5
@@ -131,9 +132,7 @@ class Topsis:
     def get_rank(self):
         self.calc()
         scores = pd.DataFrame(
-            {
-                "performance": self.worst_similarity,
-            },
+            {"performance": self.worst_similarity},
             index=self.dmatrix.index,
         )
         # Append additional previous details
